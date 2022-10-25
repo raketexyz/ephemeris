@@ -101,7 +101,7 @@ impl TryFrom<NewToken> for Token {
 }
 
 /// A session has a token used for authentication.
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct Session {
     pub token: Uuid,
 }
@@ -113,6 +113,7 @@ pub struct User {
     pub username: String,
     #[serde(skip_serializing)]
     pub password: String,
+    pub about: Option<String>,
     #[serde(rename = "createdAt")]
     pub created_at: NaiveDateTime,
     #[serde(skip_serializing)]
@@ -144,6 +145,13 @@ impl User {
     /// Generates and returns a new `Token`.
     pub fn get_token(&self) -> Result<Token, ApiError> {
         Token::try_from(NewToken::new(self.id)?)
+    }
+
+    /// Updates the users preferences.
+    pub fn update(&self, update: UserUpdate) -> Result<Self, ApiError> {
+        Ok(diesel::update(users::table.filter(users::id.eq(self.id)))
+            .set(update)
+            .get_result(&mut db::connection()?)?)
     }
 
     /// Returns the `User` the `Token` belongs to if the `Token` is valid and an
@@ -247,4 +255,11 @@ impl TryFrom<Registration> for User {
 
         Ok(user)
     }
+}
+
+#[derive(Debug, AsChangeset, Deserialize, Validate)]
+#[diesel(table_name = users)]
+pub struct UserUpdate {
+    #[validate(length(max = 160))]
+    pub about: Option<String>,
 }
