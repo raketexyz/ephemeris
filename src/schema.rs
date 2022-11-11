@@ -1,6 +1,17 @@
 // @generated automatically by Diesel CLI.
 
 diesel::table! {
+    comments (id) {
+        id -> Int4,
+        author -> Text,
+        post -> Int4,
+        message -> Text,
+        created_at -> Timestamp,
+        updated_at -> Nullable<Timestamp>,
+    }
+}
+
+diesel::table! {
     posts (id) {
         id -> Int4,
         author -> Text,
@@ -33,9 +44,11 @@ diesel::table! {
     }
 }
 
+diesel::joinable!(comments -> posts (post));
 diesel::joinable!(tokens -> users (user));
 
 diesel::allow_tables_to_appear_in_same_query!(
+    comments,
     posts,
     tokens,
     users,

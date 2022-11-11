@@ -90,7 +90,9 @@ impl Post {
 impl TryFrom<(NewPost, &User)> for Post {
     type Error = ApiError;
 
-    fn try_from((mut post, author): (NewPost, &User)) -> Result<Self, Self::Error> {
+    fn try_from(
+        (mut post, author): (NewPost, &User)
+    ) -> Result<Self, Self::Error> {
         post.body = post.body.trim().to_string();
 
         let post = diesel::insert_into(posts::table)
