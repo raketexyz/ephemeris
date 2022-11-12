@@ -2,12 +2,12 @@ use crate::{schema::comments, ApiError, db::{Paginate, self}, User};
 use chrono::NaiveDateTime;
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
-use validator::Validate;
+use validator::{Validate, ValidationError};
 
 #[derive(Debug, Deserialize, Validate)]
 pub struct NewComment {
     pub post: i32,
-    #[validate(length(min = 1, max = 140))]
+    #[validate(custom = "Comment::valid_message")]
     pub message: String,
 }
 
@@ -27,11 +27,19 @@ pub struct Comment {
 #[diesel(table_name = comments)]
 pub struct UpdateComment {
     pub id: i32,
-    #[validate(length(min = 1, max = 140))]
+    #[validate(custom = "Comment::valid_message")]
     pub message: String,
 }
 
 impl Comment {
+    pub fn valid_message(message: &str) -> Result<(), ValidationError> {
+        if message.trim().is_empty() {
+            return Err(ValidationError::new("Comment can't be empty."))
+        }
+
+        Ok(())
+    }
+
     /// Returns all comments matching the filters.
     pub fn find_all(filters: CommentFilters) -> Result<Vec<Self>, ApiError> {
         let mut query = comments::table.filter(comments::post.eq(filters.post))
@@ -71,18 +79,13 @@ impl TryFrom<(NewComment, &User)> for Comment {
     type Error = ApiError;
 
     fn try_from(
-        (mut comment, author): (NewComment, &User)
+        (comment, author): (NewComment, &User)
     ) -> Result<Self, Self::Error> {
-        comment.message = comment.message.trim().to_string();
-        if comment.message.is_empty() {
-            return Err(ApiError::new(400, "Message can't be empty.".into()))
-        }
-
         let comment = diesel::insert_into(comments::table)
             .values(&InsertableComment {
                 author: author.username.to_owned(),
                 post: comment.post,
-                message: comment.message,
+                message: comment.message.trim().into(),
             })
             .get_result::<Comment>(&mut db::connection()?)?;
 

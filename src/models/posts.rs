@@ -4,12 +4,12 @@ use crate::{db, ApiError, User};
 use chrono::NaiveDateTime;
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
-use validator::Validate;
+use validator::{Validate, ValidationError};
 
 #[derive(Debug, Deserialize, Validate, AsChangeset)]
 #[diesel(table_name = posts)]
 pub struct NewPost {
-    #[validate(length(min = 1, max = 100))]
+    #[validate(custom = "Post::valid_title")]
     pub title: String,
     #[validate(length(max = 140))]
     pub subtitle: String,
@@ -49,6 +49,18 @@ pub struct PostFilters {
 }
 
 impl Post {
+    pub fn valid_title(title: &str) -> Result<(), ValidationError> {
+        if title.trim().is_empty() {
+            return Err(ValidationError::new("Title can't be empty."));
+        }
+        if title.trim().len() > 100 {
+            return Err(ValidationError::new(
+                "Title can't be longer than 100 characters."
+            ));
+        }
+        Ok(())
+    }
+
     /// Returns all posts matching the filters.
     pub fn find_all(filters: PostFilters) -> Result<Vec<Self>, ApiError> {
         let mut query = match filters.author {
@@ -90,17 +102,13 @@ impl Post {
 impl TryFrom<(NewPost, &User)> for Post {
     type Error = ApiError;
 
-    fn try_from(
-        (mut post, author): (NewPost, &User)
-    ) -> Result<Self, Self::Error> {
-        post.body = post.body.trim().to_string();
-
+    fn try_from((post, author): (NewPost, &User)) -> Result<Self, Self::Error> {
         let post = diesel::insert_into(posts::table)
             .values(&InsertablePost {
                 author: author.username.to_owned(),
-                title: post.title,
-                subtitle: post.subtitle,
-                body: post.body,
+                title: post.title.trim().into(),
+                subtitle: post.subtitle.trim().into(),
+                body: post.body.trim().into(),
             })
             .get_result::<Post>(&mut db::connection()?)?;
 
