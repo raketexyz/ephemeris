@@ -1,6 +1,9 @@
+use std::collections::HashMap;
+
 use actix_web::{http::StatusCode, HttpResponse, ResponseError};
 use diesel::result::Error as DieselError;
 use validator::ValidationErrors;
+use serde_json::to_string;
 
 #[derive(Debug)]
 pub struct ApiError {
@@ -34,7 +37,14 @@ impl From<DieselError> for ApiError {
 
 impl From<ValidationErrors> for ApiError {
     fn from(e: ValidationErrors) -> Self {
-        Self::new(400, format!("{}", e))
+        let mut errors = HashMap::new();
+        for (a, b) in e.into_errors() {
+            errors.insert(a, b);
+        }
+        match to_string(&errors) {
+            Ok(s) => Self::new(400, s),
+            Err(s) => Self::new(500, s.to_string()),
+        }
     }
 }
 
