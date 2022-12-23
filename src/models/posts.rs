@@ -53,7 +53,7 @@ impl Post {
         if title.trim().is_empty() {
             return Err(ValidationError::new("Title can't be empty."));
         }
-        if title.trim().len() > 100 {
+        if title.trim().chars().count() > 100 {
             return Err(ValidationError::new(
                 "Title can't be longer than 100 characters."
             ));
